@@ -8,10 +8,10 @@ import Toybox.WatchUi;
 // Esfera "Split Time" con dos estilos:
 //  A - Vertical: horas arriba y minutos abajo, separados por una linea, con
 //      la fecha en el cuadrante derecho.
-//  B - Horizontal: "9 05" en una linea, con la fecha debajo.
-// Todo en blanco sobre negro o negro sobre blanco.
-// La fecha ("MO 12") y el calendario usan la fuente Roboto Condensed del
-// sistema.
+//  B - Horizontal: "9:05" en una linea, con la fecha debajo.
+// Todo en blanco sobre negro o negro sobre blanco. La fuente de la hora se
+// elige en los ajustes, con opcion de negrita. La fecha ("MO 12") y el
+// calendario usan Roboto Condensed.
 // Pensada para tactix 8 Solar / fenix 8 Solar 51 mm (MIP, 280x280).
 class SplitTimeView extends WatchUi.WatchFace {
 
@@ -20,20 +20,17 @@ class SplitTimeView extends WatchUi.WatchFace {
     // visible es algo mayor (unos 10 px), porque la caja incluye el espaciado
     // lateral de la fuente.
     const EDGE_MARGIN = 6;
-    // Fuentes vectoriales del sistema, por orden de preferencia.
-    const FONT_FACES = ["BionicSemiBold", "RobotoCondensedBold"];
-    // Altura de las cifras respecto al tamano em de la fuente (medido en el
-    // simulador con BionicSemiBold).
-    const CAP_RATIO = 0.495;
     // Estilo A: ancho y grosor de la linea respecto a la pantalla, y hueco
     // entre la linea y las cifras respecto a la altura de las cifras.
     const LINE_W_RATIO = 0.32;
     const LINE_T_RATIO = 0.015;
     const GAP_RATIO_A = 0.42;
-    // Estilo B: hueco entre horas y minutos, y entre la hora y la fecha,
-    // respecto a la altura de las cifras.
-    const SPACE_RATIO_B = 0.3;
+    // Estilo B: hueco entre la hora y la fecha, respecto a la altura de las
+    // cifras.
     const DATE_GAP_B = 0.4;
+    // Negrita simulada (fuentes sin version negrita): grosor extra del trazo
+    // respecto al tamano de la fuente.
+    const BOLD_RATIO = 0.035;
     // Fecha: fuente, tamano (px) por estilo y margen con el borde derecho
     // (estilo A).
     const TEXT_FACES = ["RobotoCondensedBold"];
@@ -50,6 +47,16 @@ class SplitTimeView extends WatchUi.WatchFace {
     const TODAY_LIGHT = Graphics.COLOR_LT_GRAY;
     // ----------------------------------------------------------------------
 
+    // Fuentes de la hora (mismo orden que FONT_* en SplitTimeApp.mc): cara
+    // normal, cara negrita (null = negrita simulada), y donde empiezan y
+    // cuanto miden las cifras respecto al tamano em. Medido en el simulador
+    // a 100 px.
+    const FONT_REGULAR = ["BionicSemiBold", "RobotoCondensedRegular", "KosugiRegular",
+                          "NanumGothicExtraBold", "NotoSansSCMedium"];
+    const FONT_BOLD = [null, "RobotoCondensedBold", null, null, null];
+    const FONT_TOP = [0.23, 0.18, 0.10, 0.16, 0.27];
+    const FONT_CAP = [0.50, 0.62, 0.76, 0.71, 0.52];
+
     // Etiquetas por dia de la semana (Gregorian: 1 = domingo ... 7 = sabado).
     const DAY_LABELS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
     const MONTH_LABELS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN",
@@ -63,12 +70,23 @@ class SplitTimeView extends WatchUi.WatchFace {
     // Meses de desplazamiento respecto al actual (-1 anterior, +1 siguiente).
     var monthOffset as Number = 0;
 
+    // Fuente de la hora por estilo, con la distancia de la caja a la parte
+    // alta de las cifras (top), la altura de las cifras (cap) y el grosor de
+    // la negrita simulada (bold, 0 si no hace falta).
     private var _fontA as Graphics.FontType = Graphics.FONT_NUMBER_THAI_HOT;
+    private var _topA as Number = 0;
     private var _capA as Number = 0;
+    private var _boldA as Number = 0;
     private var _fontB as Graphics.FontType = Graphics.FONT_NUMBER_HOT;
+    private var _topB as Number = 0;
     private var _capB as Number = 0;
-    // Altura de las cifras de la ultima fuente calculada por fitFont.
-    private var _capFit as Number = 0;
+    private var _boldB as Number = 0;
+    // Resultado de la ultima llamada a fitFont.
+    private var _fitTop as Number = 0;
+    private var _fitCap as Number = 0;
+    private var _fitBold as Number = 0;
+    // Fuente y negrita con las que se calcularon las fuentes de la hora.
+    private var _fontKey as Number = -1;
     // Fuentes de texto (fecha y calendario).
     private var _dateA as Graphics.FontType = Graphics.FONT_SMALL;
     private var _dateB as Graphics.FontType = Graphics.FONT_MEDIUM;
@@ -80,21 +98,32 @@ class SplitTimeView extends WatchUi.WatchFace {
         WatchFace.initialize();
     }
 
-    // Fuente vectorial del sistema (Bionic, la de los numeros de Garmin) con
-    // el mayor tamano que deja EDGE_MARGIN pixeles libres hasta el borde
-    // circular. Se calcula para el caso mas ancho ("88"), asi el tamano no
-    // cambia con la hora.
     function onLayout(dc as Dc) as Void {
-        var r = (dc.getWidth() < dc.getHeight() ? dc.getWidth() : dc.getHeight()) / 2.0 - EDGE_MARGIN;
-        _fontA = fitFont(dc, r, false);
-        _capA = _capFit;
-        _fontB = fitFont(dc, r, true);
-        _capB = _capFit;
+        layoutTime(dc);
         _dateA = textFont(DATE_SIZE_A, Graphics.FONT_SMALL);
         _dateB = textFont(DATE_SIZE_B, Graphics.FONT_MEDIUM);
         _calTitle = textFont(CAL_TITLE_SIZE, Graphics.FONT_SMALL);
         _calWeek = textFont(CAL_WEEK_SIZE, Graphics.FONT_XTINY);
         _calDay = textFont(CAL_DAY_SIZE, Graphics.FONT_TINY);
+    }
+
+    // Fuentes de la hora con el mayor tamano que deja EDGE_MARGIN pixeles
+    // libres hasta el borde circular. Se calcula para el caso mas ancho
+    // ("88" / "88:88"), asi el tamano no cambia con la hora. Se repite cuando
+    // cambian la fuente o la negrita en los ajustes.
+    private function layoutTime(dc as Dc) as Void {
+        var font = getTimeFont();
+        var bold = isBold();
+        _fontKey = font * 2 + (bold ? 1 : 0);
+        var r = (dc.getWidth() < dc.getHeight() ? dc.getWidth() : dc.getHeight()) / 2.0 - EDGE_MARGIN;
+        _fontA = fitFont(dc, r, font, bold, false);
+        _topA = _fitTop;
+        _capA = _fitCap;
+        _boldA = _fitBold;
+        _fontB = fitFont(dc, r, font, bold, true);
+        _topB = _fitTop;
+        _capB = _fitCap;
+        _boldB = _fitBold;
     }
 
     // Roboto Condensed vectorial al tamano pedido, o la fuente del sistema
@@ -111,7 +140,17 @@ class SplitTimeView extends WatchUi.WatchFace {
 
     // Busqueda binaria del mayor tamano que cabe en el circulo de radio r.
     // Sin fuentes vectoriales se usa la fuente numerica mayor del sistema.
-    private function fitFont(dc as Dc, r as Float, horizontal as Boolean) as Graphics.FontType {
+    private function fitFont(dc as Dc, r as Float, font as Number, bold as Boolean,
+                             horizontal as Boolean) as Graphics.FontType {
+        var face = FONT_REGULAR[font];
+        var fake = false;
+        if (bold) {
+            if (FONT_BOLD[font] != null) {
+                face = FONT_BOLD[font];
+            } else {
+                fake = true;
+            }
+        }
         var best = null;
         var bestSize = 0;
         if (Graphics has :getVectorFont) {
@@ -119,23 +158,16 @@ class SplitTimeView extends WatchUi.WatchFace {
             var hi = 400;
             while (lo <= hi) {
                 var size = (lo + hi) / 2;
-                var f = Graphics.getVectorFont({:face => FONT_FACES, :size => size});
+                var f = Graphics.getVectorFont({:face => [face, "RobotoCondensedBold"], :size => size});
                 if (f == null) {
                     break;
                 }
-                var cap = (size * CAP_RATIO).toNumber();
-                var tw = dc.getTextWidthInPixels("88", f).toFloat();
-                var hx;
-                var hy;
-                if (horizontal) {
-                    // Bloque "88 88" centrado: esquinas a (ancho/2, cifra/2).
-                    hx = (2 * tw + spaceB(cap)) / 2.0;
-                    hy = cap / 2.0;
-                } else {
-                    // Esquina exterior de las horas (o de los minutos).
-                    hx = tw / 2.0;
-                    hy = (gapA(cap) + cap).toFloat();
-                }
+                var k = fake ? boldPx(size) : 0;
+                var cap = (size * FONT_CAP[font]).toNumber() + k;
+                var tw = timeWidth(dc, horizontal ? "88:88" : "88", f, k).toFloat();
+                var hx = tw / 2.0;
+                // B: bloque centrado. A: esquina exterior de horas o minutos.
+                var hy = horizontal ? cap / 2.0 : (gapA(cap) + cap).toFloat();
                 if (hx * hx + hy * hy <= r * r) {
                     best = f;
                     bestSize = size;
@@ -147,11 +179,20 @@ class SplitTimeView extends WatchUi.WatchFace {
         }
         if (best == null) {
             var sys = horizontal ? Graphics.FONT_NUMBER_HOT : Graphics.FONT_NUMBER_THAI_HOT;
-            _capFit = (Graphics.getFontAscent(sys) * 0.95).toNumber();
+            _fitCap = (Graphics.getFontAscent(sys) * 0.95).toNumber();
+            _fitTop = Graphics.getFontAscent(sys) - _fitCap;
+            _fitBold = 0;
             return sys;
         }
-        _capFit = (bestSize * CAP_RATIO).toNumber();
+        _fitBold = fake ? boldPx(bestSize) : 0;
+        _fitCap = (bestSize * FONT_CAP[font]).toNumber() + _fitBold;
+        _fitTop = (bestSize * FONT_TOP[font]).toNumber();
         return best;
+    }
+
+    private function boldPx(size as Number) as Number {
+        var k = (size * BOLD_RATIO + 0.5).toNumber();
+        return k < 1 ? 1 : k;
     }
 
     // Hueco entre la linea y las cifras (estilo A).
@@ -159,9 +200,53 @@ class SplitTimeView extends WatchUi.WatchFace {
         return (cap * GAP_RATIO_A).toNumber();
     }
 
-    // Hueco entre horas y minutos (estilo B).
-    private function spaceB(cap as Number) as Number {
-        return (cap * SPACE_RATIO_B).toNumber();
+    // Trozos que se dibujan por separado: "23:59" -> ["23", ":", "59"]. Con
+    // negrita simulada, cada trozo ocupa "bold" pixeles mas, asi los dos
+    // puntos no se pegan a las cifras.
+    private function timeParts(text as String) as Array<String> {
+        var i = text.find(":");
+        if (i == null) {
+            return [text];
+        }
+        return [text.substring(0, i) as String, ":", text.substring(i + 1, text.length()) as String];
+    }
+
+    // Ancho de un texto de la hora.
+    private function timeWidth(dc as Dc, text as String, font as Graphics.FontType, bold as Number) as Number {
+        if (bold == 0) {
+            return dc.getTextWidthInPixels(text, font);
+        }
+        var parts = timeParts(text);
+        var total = 0;
+        for (var p = 0; p < parts.size(); p++) {
+            total += dc.getTextWidthInPixels(parts[p], font) + bold;
+        }
+        return total;
+    }
+
+    // Desplazamientos de la negrita simulada, en fracciones del grosor: el
+    // borde de un cuadrado (esquinas y puntos medios). Con 8 copias el trazo
+    // engorda sin huecos visibles y el dibujo sigue siendo ligero.
+    const BOLD_DX = [0, 1, 2, 2, 2, 1, 0, 0];
+    const BOLD_DY = [0, 0, 0, 1, 2, 2, 2, 1];
+
+    // Dibuja la hora centrada en x, con la parte alta de las cifras en "top".
+    private function drawTime(dc as Dc, x as Number, top as Number, font as Graphics.FontType,
+                              fontTop as Number, bold as Number, text as String) as Void {
+        var y = top - fontTop;
+        if (bold == 0) {
+            dc.drawText(x, y, font, text, Graphics.TEXT_JUSTIFY_CENTER);
+            return;
+        }
+        var parts = timeParts(text);
+        var px = x - timeWidth(dc, text, font, bold) / 2;
+        var l = Graphics.TEXT_JUSTIFY_LEFT;
+        for (var p = 0; p < parts.size(); p++) {
+            for (var i = 0; i < 8; i++) {
+                dc.drawText(px + BOLD_DX[i] * bold / 2, y + BOLD_DY[i] * bold / 2, font, parts[p], l);
+            }
+            px += dc.getTextWidthInPixels(parts[p], font) + bold;
+        }
     }
 
     function onUpdate(dc as Dc) as Void {
@@ -177,6 +262,10 @@ class SplitTimeView extends WatchUi.WatchFace {
         if (showCalendar) {
             drawCalendar(dc, w, h);
             return;
+        }
+
+        if (getTimeFont() * 2 + (isBold() ? 1 : 0) != _fontKey) {
+            layoutTime(dc);
         }
 
         var settings = System.getDeviceSettings();
@@ -195,28 +284,25 @@ class SplitTimeView extends WatchUi.WatchFace {
         var date = DAY_LABELS[(info.day_of_week as Number) - 1] + " " + info.day.toString();
 
         if (getStyle() == STYLE_HORIZONTAL) {
-            // Hora sin cero delante, como en "9 05".
-            drawHorizontal(dc, w, h, hour.toString(), mText, date, fg);
+            // Hora sin cero delante, como en "9:05".
+            drawHorizontal(dc, w, h, hour.toString() + ":" + mText, date);
         } else {
             var hText = settings.is24Hour ? hour.format("%02d") : hour.toString();
-            drawVertical(dc, w, h, hText, mText, date, fg);
+            drawVertical(dc, w, h, hText, mText, date);
         }
     }
 
     // Estilo A: horas arriba, minutos abajo, linea en el centro y fecha en el
     // cuadrante derecho.
     private function drawVertical(dc as Dc, w as Number, h as Number, hText as String,
-                                  mText as String, date as String, fg as Number) as Void {
+                                  mText as String, date as String) as Void {
         var cx = w / 2;
         var cy = h / 2;
         var gap = gapA(_capA);
-        // drawText coloca el texto por la parte superior de la caja; la base
-        // de las cifras queda a "ascent" de ahi.
-        var ascent = Graphics.getFontAscent(_fontA);
         // Horas: la base de las cifras queda "gap" por encima de la linea.
-        dc.drawText(cx, cy - gap - ascent, _fontA, hText, Graphics.TEXT_JUSTIFY_CENTER);
+        drawTime(dc, cx, cy - gap - _capA, _fontA, _topA, _boldA, hText);
         // Minutos: la parte alta de las cifras queda "gap" por debajo.
-        dc.drawText(cx, cy + gap + _capA - ascent, _fontA, mText, Graphics.TEXT_JUSTIFY_CENTER);
+        drawTime(dc, cx, cy + gap, _fontA, _topA, _boldA, mText);
 
         // ---- Linea central ----
         var lineW = (w * LINE_W_RATIO).toNumber();
@@ -234,24 +320,16 @@ class SplitTimeView extends WatchUi.WatchFace {
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    // Estilo B: "9 05" en una linea, con la fecha debajo.
-    private function drawHorizontal(dc as Dc, w as Number, h as Number, hText as String,
-                                    mText as String, date as String, fg as Number) as Void {
+    // Estilo B: "9:05" en una linea, con la fecha debajo.
+    private function drawHorizontal(dc as Dc, w as Number, h as Number, time as String,
+                                    date as String) as Void {
         var cx = w / 2;
         var cy = h / 2;
-        var space = spaceB(_capB);
-        var hw = dc.getTextWidthInPixels(hText, _fontB);
-        var mw = dc.getTextWidthInPixels(mText, _fontB);
-        var x = cx - (hw + space + mw) / 2;
         // Cifras centradas verticalmente en la pantalla.
-        var y = cy + _capB / 2 - Graphics.getFontAscent(_fontB);
-        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(x, y, _fontB, hText, Graphics.TEXT_JUSTIFY_LEFT);
-        dc.drawText(x + hw + space, y, _fontB, mText, Graphics.TEXT_JUSTIFY_LEFT);
+        drawTime(dc, cx, cy - _capB / 2, _fontB, _topB, _boldB, time);
 
         // Fecha debajo: la parte alta de las mayusculas a DATE_GAP_B de la hora.
         var dy = cy + _capB / 2 + (_capB * DATE_GAP_B).toNumber();
-        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
         dc.drawText(cx, dy - capOffset(_dateB, DATE_SIZE_B), _dateB, date, Graphics.TEXT_JUSTIFY_CENTER);
     }
 

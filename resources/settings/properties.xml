@@ -1,4 +1,6 @@
 <properties>
     <property id="Style" type="number">0</property>
+    <property id="Font" type="number">0</property>
+    <property id="Bold" type="boolean">false</property>
     <property id="DarkMode" type="boolean">true</property>
 </properties>

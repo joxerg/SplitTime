@@ -4,5 +4,12 @@
     <string id="StyleTitle">Estilo</string>
     <string id="StyleVertical">A - Vertical</string>
     <string id="StyleHorizontal">B - Horizontal</string>
+    <string id="FontTitle">Fuente</string>
+    <string id="FontBionic">Bionic</string>
+    <string id="FontRoboto">Roboto Condensed</string>
+    <string id="FontKosugi">Kosugi</string>
+    <string id="FontNanum">Nanum Gothic</string>
+    <string id="FontNoto">Noto Sans</string>
+    <string id="BoldTitle">Negrita</string>
     <string id="DarkModeTitle">Fondo negro</string>
 </strings>

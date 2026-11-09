@@ -5,6 +5,18 @@
             <listEntry value="1">@Strings.StyleHorizontal</listEntry>
         </settingConfig>
     </setting>
+    <setting propertyKey="@Properties.Font" title="@Strings.FontTitle">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.FontBionic</listEntry>
+            <listEntry value="1">@Strings.FontRoboto</listEntry>
+            <listEntry value="2">@Strings.FontKosugi</listEntry>
+            <listEntry value="3">@Strings.FontNanum</listEntry>
+            <listEntry value="4">@Strings.FontNoto</listEntry>
+        </settingConfig>
+    </setting>
+    <setting propertyKey="@Properties.Bold" title="@Strings.BoldTitle">
+        <settingConfig type="boolean"/>
+    </setting>
     <setting propertyKey="@Properties.DarkMode" title="@Strings.DarkModeTitle">
         <settingConfig type="boolean"/>
     </setting>
