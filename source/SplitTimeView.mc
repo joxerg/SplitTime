@@ -6,17 +6,16 @@ import Toybox.Time.Gregorian;
 import Toybox.WatchUi;
 
 // Esfera "Split Time" con dos estilos:
-//  A - Vertical: horas arriba y minutos abajo, separados por una linea de
-//      color, con la fecha en el cuadrante derecho.
-//  B - Horizontal: "9 05" en una linea, minutos en el color destacado y la
-//      fecha debajo.
-// La fecha usa los glifos pixelados de Pixel Time ("MO 12").
+//  A - Vertical: horas arriba y minutos abajo, separados por una linea, con
+//      la fecha en el cuadrante derecho.
+//  B - Horizontal: "9 05" en una linea, con la fecha debajo.
+// Todo en blanco sobre negro o negro sobre blanco.
+// La fecha ("MO 12") y el calendario usan la fuente Roboto Condensed del
+// sistema.
 // Pensada para tactix 8 Solar / fenix 8 Solar 51 mm (MIP, 280x280).
 class SplitTimeView extends WatchUi.WatchFace {
 
     // ---- Ajustes ---------------------------------------------------------
-    // Color destacado: linea del estilo A y minutos del estilo B.
-    const ACCENT_COLOR = 0xFF2D6F;
     // Pixeles libres entre la caja de las cifras y el borde circular. El hueco
     // visible es algo mayor (unos 10 px), porque la caja incluye el espaciado
     // lateral de la fuente.
@@ -35,13 +34,21 @@ class SplitTimeView extends WatchUi.WatchFace {
     // respecto a la altura de las cifras.
     const SPACE_RATIO_B = 0.3;
     const DATE_GAP_B = 0.4;
-    // Bloque de la fecha pixelada en pixeles y margen con el borde derecho
+    // Fecha: fuente, tamano (px) por estilo y margen con el borde derecho
     // (estilo A).
-    const DATE_BLOCK = 3;
+    const TEXT_FACES = ["RobotoCondensedBold"];
+    const DATE_SIZE_A = 26;
+    const DATE_SIZE_B = 30;
     const DATE_MARGIN = 12;
+    // Calendario: tamano (px) de la cabecera, iniciales y numeros.
+    const CAL_TITLE_SIZE = 28;
+    const CAL_WEEK_SIZE = 19;
+    const CAL_DAY_SIZE = 25;
+    // Gris de la marca del dia de hoy: oscuro con fondo negro y claro con
+    // fondo blanco, para que el numero se siga leyendo encima.
+    const TODAY_DARK = Graphics.COLOR_DK_GRAY;
+    const TODAY_LIGHT = Graphics.COLOR_LT_GRAY;
     // ----------------------------------------------------------------------
-
-    const GLYPH_H = 5;
 
     // Etiquetas por dia de la semana (Gregorian: 1 = domingo ... 7 = sabado).
     const DAY_LABELS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
@@ -56,70 +63,21 @@ class SplitTimeView extends WatchUi.WatchFace {
     // Meses de desplazamiento respecto al actual (-1 anterior, +1 siguiente).
     var monthOffset as Number = 0;
 
-    // Glifos pixelados de Pixel Time: [ancho, fila0..fila4, (columna, fila*2)...].
-    // Cada fila es una mascara de bits, el bit mas alto es la columna izquierda.
-    private var _fontPixel as Dictionary<String, Array<Number>>;
-    // Digitos pequenos 3x5 para los dias del calendario.
-    private var _fontSmall as Dictionary<String, Array<Number>>;
-
     private var _fontA as Graphics.FontType = Graphics.FONT_NUMBER_THAI_HOT;
     private var _capA as Number = 0;
     private var _fontB as Graphics.FontType = Graphics.FONT_NUMBER_HOT;
     private var _capB as Number = 0;
     // Altura de las cifras de la ultima fuente calculada por fitFont.
     private var _capFit as Number = 0;
+    // Fuentes de texto (fecha y calendario).
+    private var _dateA as Graphics.FontType = Graphics.FONT_SMALL;
+    private var _dateB as Graphics.FontType = Graphics.FONT_MEDIUM;
+    private var _calTitle as Graphics.FontType = Graphics.FONT_SMALL;
+    private var _calWeek as Graphics.FontType = Graphics.FONT_XTINY;
+    private var _calDay as Graphics.FontType = Graphics.FONT_TINY;
 
     function initialize() {
         WatchFace.initialize();
-        _fontPixel = {
-            "0" => [4, 0x6, 0x9, 0x9, 0x9, 0x6],
-            "1" => [4, 0x2, 0x2, 0x2, 0x2, 0x2, 1, 3],
-            "2" => [4, 0x6, 0x9, 0x2, 0x4, 0xF],
-            "3" => [4, 0xE, 0x1, 0x6, 0x1, 0xE],
-            "4" => [4, 0x9, 0x9, 0xF, 0x1, 0x1],
-            "5" => [4, 0xF, 0x8, 0xE, 0x1, 0xE],
-            "6" => [4, 0x6, 0x8, 0xE, 0x9, 0x6],
-            "7" => [4, 0xF, 0x1, 0x2, 0x4, 0x4],
-            "8" => [4, 0x6, 0x9, 0x6, 0x9, 0x6],
-            "9" => [4, 0x6, 0x9, 0x7, 0x1, 0x6],
-            " " => [1, 0x0, 0x0, 0x0, 0x0, 0x0],
-            "M" => [5, 0x11, 0x1B, 0x15, 0x11, 0x11],
-            "W" => [5, 0x11, 0x11, 0x15, 0x1B, 0x11],
-            "O" => [4, 0x6, 0x9, 0x9, 0x9, 0x6],
-            "T" => [3, 0x7, 0x2, 0x2, 0x2, 0x2],
-            "U" => [4, 0x9, 0x9, 0x9, 0x9, 0x6],
-            "E" => [4, 0xF, 0x8, 0xE, 0x8, 0xF],
-            "H" => [4, 0x9, 0x9, 0xF, 0x9, 0x9],
-            "F" => [4, 0xF, 0x8, 0xE, 0x8, 0x8],
-            "R" => [4, 0xE, 0x9, 0xE, 0xA, 0x9],
-            "S" => [4, 0x7, 0x8, 0x6, 0x1, 0xE],
-            "A" => [4, 0x6, 0x9, 0xF, 0x9, 0x9],
-            "N" => [4, 0x9, 0xD, 0xB, 0x9, 0x9],
-            "B" => [4, 0xE, 0x9, 0xE, 0x9, 0xE],
-            "P" => [4, 0xE, 0x9, 0xE, 0x8, 0x8],
-            "L" => [4, 0x8, 0x8, 0x8, 0x8, 0xF],
-            "G" => [4, 0x7, 0x8, 0xB, 0x9, 0x7],
-            "C" => [4, 0x7, 0x8, 0x8, 0x8, 0x7],
-            "D" => [4, 0xE, 0x9, 0x9, 0x9, 0xE],
-            "J" => [4, 0x1, 0x1, 0x1, 0x9, 0x6],
-            "Y" => [5, 0x11, 0x0A, 0x04, 0x04, 0x04],
-            "V" => [5, 0x11, 0x11, 0x11, 0x0A, 0x04],
-            "<" => [3, 0x1, 0x2, 0x4, 0x2, 0x1],
-            ">" => [3, 0x4, 0x2, 0x1, 0x2, 0x4]
-        } as Dictionary<String, Array<Number>>;
-
-        _fontSmall = {
-            "0" => [3, 0x7, 0x5, 0x5, 0x5, 0x7],
-            "1" => [3, 0x2, 0x6, 0x2, 0x2, 0x7],
-            "2" => [3, 0x7, 0x1, 0x7, 0x4, 0x7],
-            "3" => [3, 0x7, 0x1, 0x3, 0x1, 0x7],
-            "4" => [3, 0x5, 0x5, 0x7, 0x1, 0x1],
-            "5" => [3, 0x7, 0x4, 0x7, 0x1, 0x7],
-            "6" => [3, 0x7, 0x4, 0x7, 0x5, 0x7],
-            "7" => [3, 0x7, 0x1, 0x2, 0x2, 0x2],
-            "8" => [3, 0x7, 0x5, 0x7, 0x5, 0x7],
-            "9" => [3, 0x7, 0x5, 0x7, 0x1, 0x7]
-        } as Dictionary<String, Array<Number>>;
     }
 
     // Fuente vectorial del sistema (Bionic, la de los numeros de Garmin) con
@@ -132,6 +90,23 @@ class SplitTimeView extends WatchUi.WatchFace {
         _capA = _capFit;
         _fontB = fitFont(dc, r, true);
         _capB = _capFit;
+        _dateA = textFont(DATE_SIZE_A, Graphics.FONT_SMALL);
+        _dateB = textFont(DATE_SIZE_B, Graphics.FONT_MEDIUM);
+        _calTitle = textFont(CAL_TITLE_SIZE, Graphics.FONT_SMALL);
+        _calWeek = textFont(CAL_WEEK_SIZE, Graphics.FONT_XTINY);
+        _calDay = textFont(CAL_DAY_SIZE, Graphics.FONT_TINY);
+    }
+
+    // Roboto Condensed vectorial al tamano pedido, o la fuente del sistema
+    // indicada si no hay fuentes vectoriales.
+    private function textFont(size as Number, fallback as Graphics.FontType) as Graphics.FontType {
+        if (Graphics has :getVectorFont) {
+            var f = Graphics.getVectorFont({:face => TEXT_FACES, :size => size});
+            if (f != null) {
+                return f;
+            }
+        }
+        return fallback;
     }
 
     // Busqueda binaria del mayor tamano que cabe en el circulo de radio r.
@@ -250,20 +225,16 @@ class SplitTimeView extends WatchUi.WatchFace {
             lineT = 2;
         }
         var lineX = cx - lineW / 2;
-        dc.setColor(ACCENT_COLOR, Graphics.COLOR_TRANSPARENT);
         dc.fillRectangle(lineX, cy - lineT / 2, lineW, lineT);
 
         // ---- Fecha centrada entre el final de la linea y el borde ----
-        var dw = measure(_fontPixel, date, 1) * DATE_BLOCK;
         var left = lineX + lineW;
         var right = w - DATE_MARGIN;
-        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        drawText(dc, _fontPixel, date, left + (right - left - dw) / 2,
-                 cy - GLYPH_H * DATE_BLOCK / 2, DATE_BLOCK, 1);
+        dc.drawText((left + right) / 2, cy, _dateA, date,
+                    Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    // Estilo B: "9 05" en una linea, horas en el color del texto y minutos en
-    // el color destacado; la fecha pixelada debajo.
+    // Estilo B: "9 05" en una linea, con la fecha debajo.
     private function drawHorizontal(dc as Dc, w as Number, h as Number, hText as String,
                                     mText as String, date as String, fg as Number) as Void {
         var cx = w / 2;
@@ -276,13 +247,18 @@ class SplitTimeView extends WatchUi.WatchFace {
         var y = cy + _capB / 2 - Graphics.getFontAscent(_fontB);
         dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
         dc.drawText(x, y, _fontB, hText, Graphics.TEXT_JUSTIFY_LEFT);
-        dc.setColor(ACCENT_COLOR, Graphics.COLOR_TRANSPARENT);
         dc.drawText(x + hw + space, y, _fontB, mText, Graphics.TEXT_JUSTIFY_LEFT);
 
-        var dw = measure(_fontPixel, date, 1) * DATE_BLOCK;
+        // Fecha debajo: la parte alta de las mayusculas a DATE_GAP_B de la hora.
         var dy = cy + _capB / 2 + (_capB * DATE_GAP_B).toNumber();
         dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-        drawText(dc, _fontPixel, date, cx - dw / 2, dy, DATE_BLOCK, 1);
+        dc.drawText(cx, dy - capOffset(_dateB, DATE_SIZE_B), _dateB, date, Graphics.TEXT_JUSTIFY_CENTER);
+    }
+
+    // Distancia entre la parte alta de la caja de texto y la de las
+    // mayusculas (Roboto: mayusculas de ~0.71 em).
+    private function capOffset(font as Graphics.FontType, size as Number) as Number {
+        return Graphics.getFontAscent(font) - (size * 0.71).toNumber();
     }
 
     // Dia de la semana (0 = domingo ... 6 = sabado), algoritmo de Sakamoto.
@@ -294,15 +270,17 @@ class SplitTimeView extends WatchUi.WatchFace {
         return (y + y / 4 - y / 100 + y / 400 + t[m - 1] + d) % 7;
     }
 
-    // Mes completo (semana de lunes a domingo) con el dia de hoy subrayado
-    // en el color de la linea.
+    // Mes completo (semana de lunes a domingo) con el dia de hoy marcado en
+    // gris.
     private function drawCalendar(dc as Dc, w as Number, h as Number) as Void {
-        var p = (w >= 240) ? 3 : 2;  // bloque de los numeros
-        var wp = p - 1;              // bloque de las iniciales de la semana
-        var cellW = 7 * p;           // dos digitos de 3 + 1 de hueco
-        var pitch = cellW + 3 * p;   // ancho de columna con separacion
-        var gridW = 7 * pitch - 3 * p;
-        var rowH = 8 * p;            // 5 de digito + hueco + subrayado + hueco
+        var pitch = 29;              // ancho de columna
+        var cellW = 24;              // ancho de la celda de cada numero
+        var gridW = 6 * pitch + cellW;
+        var rowH = 24;               // alto de cada semana
+        var titleCap = (CAL_TITLE_SIZE * 0.71).toNumber();
+        var weekCap = (CAL_WEEK_SIZE * 0.71).toNumber();
+        var dayCap = (CAL_DAY_SIZE * 0.71).toNumber();
+        var vc = Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER;
 
         var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
         var total = (info.year as Number) * 12 + (info.month as Number) - 1 + monthOffset;
@@ -317,85 +295,33 @@ class SplitTimeView extends WatchUi.WatchFace {
         var firstCol = (dayOfWeek(year, month, 1) + 6) % 7;
 
         // Altura calculada siempre para 6 semanas, para que la cabecera no salte.
-        var totalH = 5 * p + 3 * p + 5 * wp + 3 * p + 6 * rowH - 3 * p;
+        var totalH = titleCap + 14 + weekCap + 10 + 6 * rowH;
         var y = (h - totalH) / 2;
         var left = (w - gridW) / 2;
 
-        var title = MONTH_LABELS[month - 1] + " " + year.toString();
-        drawText(dc, _fontPixel, title, (w - measure(_fontPixel, title, 1) * p) / 2, y, p, 1);
-        drawText(dc, _fontPixel, "<", left, y, p, 1);
-        drawText(dc, _fontPixel, ">", left + gridW - 3 * p, y, p, 1);
-        y += 8 * p;
+        // Cabecera: "<  NOV 2026  >". Las flechas marcan las zonas de pulsacion.
+        var ty = y + titleCap / 2;
+        dc.drawText(w / 2, ty, _calTitle, MONTH_LABELS[month - 1] + " " + year.toString(), vc);
+        dc.drawText(left + cellW / 2, ty, _calTitle, "<", vc);
+        dc.drawText(left + gridW - cellW / 2, ty, _calTitle, ">", vc);
+        y += titleCap + 14;
 
         for (var c = 0; c < 7; c++) {
-            var lw = measure(_fontPixel, WEEK_LABELS[c], 1) * wp;
-            drawText(dc, _fontPixel, WEEK_LABELS[c], left + c * pitch + (cellW - lw) / 2, y, wp, 1);
+            dc.drawText(left + c * pitch + cellW / 2, y + weekCap / 2, _calWeek, WEEK_LABELS[c], vc);
         }
-        y += 5 * wp + 3 * p;
+        y += weekCap + 10;
 
         for (var d = 1; d <= days; d++) {
             var idx = firstCol + d - 1;
             var cx = left + (idx % 7) * pitch;
             var cy = y + (idx / 7) * rowH;
-            var s = d.toString();
-            var tw = measure(_fontSmall, s, 1) * p;
-            drawText(dc, _fontSmall, s, cx + (cellW - tw) / 2, cy, p, 1);
             if (d == day) {
-                var fg = isDarkMode() ? Graphics.COLOR_WHITE : Graphics.COLOR_BLACK;
-                dc.setColor(ACCENT_COLOR, Graphics.COLOR_TRANSPARENT);
-                dc.fillRectangle(cx, cy + 6 * p, cellW, p);
-                dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
+                // Marca gris detras de todo el numero, bajo el texto.
+                dc.setColor(isDarkMode() ? TODAY_DARK : TODAY_LIGHT, Graphics.COLOR_TRANSPARENT);
+                dc.fillRoundedRectangle(cx - 2, cy - 4, cellW + 4, dayCap + 8, 3);
+                dc.setColor(isDarkMode() ? Graphics.COLOR_WHITE : Graphics.COLOR_BLACK, Graphics.COLOR_TRANSPARENT);
             }
-        }
-    }
-
-    // Ancho en bloques de un texto.
-    private function measure(font as Dictionary<String, Array<Number>>, text as String, spacing as Number) as Number {
-        var chars = text.toCharArray();
-        var total = 0;
-        for (var i = 0; i < chars.size(); i++) {
-            var g = font[chars[i].toString()];
-            if (g != null) {
-                total += g[0];
-                if (i > 0) {
-                    total += spacing;
-                }
-            }
-        }
-        return total;
-    }
-
-    private function drawText(dc as Dc, font as Dictionary<String, Array<Number>>, text as String,
-                              x as Number, y as Number, block as Number, spacing as Number) as Void {
-        var chars = text.toCharArray();
-        for (var i = 0; i < chars.size(); i++) {
-            var g = font[chars[i].toString()];
-            if (g != null) {
-                drawGlyph(dc, g, x, y, block);
-                x += (g[0] + spacing) * block;
-            }
-        }
-    }
-
-    private function drawGlyph(dc as Dc, g as Array<Number>, x as Number, y as Number, block as Number) as Void {
-        var gw = g[0];
-        for (var r = 0; r < GLYPH_H; r++) {
-            var bits = g[r + 1];
-            var col = 0;
-            while (col < gw) {
-                if ((bits & (1 << (gw - 1 - col))) != 0) {
-                    var start = col;
-                    while (col < gw && (bits & (1 << (gw - 1 - col))) != 0) {
-                        col++;
-                    }
-                    dc.fillRectangle(x + start * block, y + r * block, (col - start) * block, block);
-                } else {
-                    col++;
-                }
-            }
-        }
-        for (var i = GLYPH_H + 1; i + 1 < g.size(); i += 2) {
-            dc.fillRectangle(x + g[i] * block, y + (g[i + 1] * block) / 2, block, block);
+            dc.drawText(cx + cellW / 2, cy + dayCap / 2, _calDay, d.toString(), vc);
         }
     }
 
