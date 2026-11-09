@@ -1,0 +1,4 @@
+<properties>
+    <property id="Style" type="number">0</property>
+    <property id="DarkMode" type="boolean">true</property>
+</properties>

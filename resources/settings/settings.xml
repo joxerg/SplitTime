@@ -1,0 +1,11 @@
+<settings>
+    <setting propertyKey="@Properties.Style" title="@Strings.StyleTitle">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.StyleVertical</listEntry>
+            <listEntry value="1">@Strings.StyleHorizontal</listEntry>
+        </settingConfig>
+    </setting>
+    <setting propertyKey="@Properties.DarkMode" title="@Strings.DarkModeTitle">
+        <settingConfig type="boolean"/>
+    </setting>
+</settings>

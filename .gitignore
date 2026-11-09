@@ -1,0 +1,19 @@
+# Salida de compilación de Connect IQ
+bin/
+gen/
+mir/
+internal-mir/
+*.prg
+*.iq
+*.debug.xml
+*-settings.json
+
+# Claves de desarrollador (nunca subirlas)
+developer_key
+*.der
+*.pem
+
+# Editor / sistema
+.vscode/
+.DS_Store
+Thumbs.db
