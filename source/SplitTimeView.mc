@@ -1,5 +1,6 @@
 import Toybox.Graphics;
 import Toybox.Lang;
+import Toybox.Math;
 import Toybox.System;
 import Toybox.Time;
 import Toybox.Time.Gregorian;
@@ -31,10 +32,11 @@ class SplitTimeView extends WatchUi.WatchFace {
     // Negrita simulada (fuentes sin version negrita): grosor extra del trazo
     // respecto al tamano de la fuente.
     const BOLD_RATIO = 0.035;
-    // Bionic vacia: grosor total del contorno respecto al tamano de la fuente
-    // (la mitad queda por fuera de la cifra). Con negrita se usa el segundo.
-    const HOLLOW_RATIO = 0.05;
-    const HOLLOW_BOLD_RATIO = 0.08;
+    // Bionic vacia: grosor del contorno respecto al tamano de la fuente. El
+    // contorno queda por fuera de la silueta de la cifra. Con negrita se usa
+    // el segundo.
+    const HOLLOW_RATIO = 0.022;
+    const HOLLOW_BOLD_RATIO = 0.036;
     // Fecha: fuente, tamano (px) por estilo y margen con el borde derecho
     // (estilo A).
     const TEXT_FACES = ["RobotoCondensedBold"];
@@ -174,7 +176,8 @@ class SplitTimeView extends WatchUi.WatchFace {
                 if (f == null) {
                     break;
                 }
-                var k = fake ? boldPx(size, ratio) : 0;
+                // La vacia crece el grosor del contorno por cada lado.
+                var k = fake ? boldPx(size, ratio) * (hollow ? 2 : 1) : 0;
                 var cap = (size * FONT_CAP[font]).toNumber() + k;
                 var tw = timeWidth(dc, horizontal ? "88:88" : "88", f, k).toFloat();
                 var hx = tw / 2.0;
@@ -196,7 +199,7 @@ class SplitTimeView extends WatchUi.WatchFace {
             _fitBold = 0;
             return sys;
         }
-        _fitBold = fake ? boldPx(bestSize, ratio) : 0;
+        _fitBold = fake ? boldPx(bestSize, ratio) * (hollow ? 2 : 1) : 0;
         _fitCap = (bestSize * FONT_CAP[font]).toNumber() + _fitBold;
         _fitTop = (bestSize * FONT_TOP[font]).toNumber();
         return best;
@@ -215,7 +218,17 @@ class SplitTimeView extends WatchUi.WatchFace {
     // Trozos que se dibujan por separado: "23:59" -> ["23", ":", "59"]. Con
     // negrita simulada, cada trozo ocupa "bold" pixeles mas, asi los dos
     // puntos no se pegan a las cifras.
+    // En la vacia cada caracter va por separado, para que el contorno de una
+    // cifra no se pegue al de la siguiente.
     private function timeParts(text as String) as Array<String> {
+        if (_hollow) {
+            var chars = text.toCharArray();
+            var out = [] as Array<String>;
+            for (var c = 0; c < chars.size(); c++) {
+                out.add(chars[c].toString());
+            }
+            return out;
+        }
         var i = text.find(":");
         if (i == null) {
             return [text];
@@ -253,22 +266,58 @@ class SplitTimeView extends WatchUi.WatchFace {
         var parts = timeParts(text);
         var px = x - timeWidth(dc, text, font, bold) / 2;
         var l = Graphics.TEXT_JUSTIFY_LEFT;
-        var dark = isDarkMode();
-        var fg = dark ? Graphics.COLOR_WHITE : Graphics.COLOR_BLACK;
-        var bg = dark ? Graphics.COLOR_BLACK : Graphics.COLOR_WHITE;
+        if (_hollow) {
+            // La caja (cap) incluye el contorno: la cifra baja t pixeles.
+            drawHollow(dc, px, y + bold / 2, font, bold / 2, parts);
+            return;
+        }
         for (var p = 0; p < parts.size(); p++) {
             for (var i = 0; i < 8; i++) {
                 dc.drawText(px + BOLD_DX[i] * bold / 2, y + BOLD_DY[i] * bold / 2, font, parts[p], l);
             }
-            if (_hollow) {
-                // Vaciar: la cifra original, centrada en el trazo engordado,
-                // en el color del fondo. Queda solo el contorno.
-                dc.setColor(bg, Graphics.COLOR_TRANSPARENT);
-                dc.drawText(px + bold / 2, y + bold / 2, font, parts[p], l);
-                dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
-            }
             px += dc.getTextWidthInPixels(parts[p], font) + bold;
         }
+    }
+
+    // Direcciones del contorno de la vacia: 12 puntos de un circulo (cada
+    // 30 grados), en milesimas. Con un circulo el contorno mide lo mismo en
+    // rectas y diagonales; con 12 puntos el hueco entre copias es menor de
+    // medio pixel, invisible.
+    const HOLLOW_DX = [1000, 866, 500, 0, -500, -866, -1000, -866, -500, 0, 500, 866];
+    const HOLLOW_DY = [0, 500, 866, 1000, 866, 500, 0, -500, -866, -1000, -866, -500];
+
+    // Bionic vacia: copias de cada caracter desplazadas t pixeles alrededor
+    // de su posicion y, encima, el caracter en el color del fondo exactamente
+    // en el centro. Queda un contorno de t pixeles igual por todos los lados.
+    private function drawHollow(dc as Dc, px as Number, y as Number, font as Graphics.FontType,
+                                t as Number, parts as Array<String>) as Void {
+        var dark = isDarkMode();
+        var fg = dark ? Graphics.COLOR_WHITE : Graphics.COLOR_BLACK;
+        var bg = dark ? Graphics.COLOR_BLACK : Graphics.COLOR_WHITE;
+        var l = Graphics.TEXT_JUSTIFY_LEFT;
+        var n = HOLLOW_DX.size();
+        var ox = new [n] as Array<Number>;
+        var oy = new [n] as Array<Number>;
+        for (var i = 0; i < n; i++) {
+            ox[i] = Math.round(HOLLOW_DX[i] * t / 1000.0).toNumber();
+            oy[i] = Math.round(HOLLOW_DY[i] * t / 1000.0).toNumber();
+        }
+        // Primero todos los contornos y despues todos los huecos, para que el
+        // contorno de un trozo no tape el hueco del de al lado.
+        var xs = new [parts.size()] as Array<Number>;
+        var cx = px + t;
+        for (var p = 0; p < parts.size(); p++) {
+            xs[p] = cx;
+            for (var i = 0; i < n; i++) {
+                dc.drawText(cx + ox[i], y + oy[i], font, parts[p], l);
+            }
+            cx += dc.getTextWidthInPixels(parts[p], font) + 2 * t;
+        }
+        dc.setColor(bg, Graphics.COLOR_TRANSPARENT);
+        for (var p = 0; p < parts.size(); p++) {
+            dc.drawText(xs[p], y, font, parts[p], l);
+        }
+        dc.setColor(fg, Graphics.COLOR_TRANSPARENT);
     }
 
     function onUpdate(dc as Dc) as Void {
