@@ -10,6 +10,7 @@
     <string id="FontKosugi">Kosugi</string>
     <string id="FontNanum">Nanum Gothic</string>
     <string id="FontNoto">Noto Sans</string>
+    <string id="FontBionicHollow">Bionic vacía</string>
     <string id="BoldTitle">Negrita</string>
     <string id="DarkModeTitle">Fondo negro</string>
 </strings>

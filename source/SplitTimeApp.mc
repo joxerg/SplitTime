@@ -7,7 +7,7 @@ const STYLE_VERTICAL = 0;
 const STYLE_HORIZONTAL = 1;
 
 // Fuentes de la hora (indices de FONT_REGULAR en SplitTimeView.mc).
-const FONT_COUNT = 5;
+const FONT_COUNT = 6;
 
 class SplitTimeApp extends Application.AppBase {
 
@@ -80,7 +80,7 @@ function isBold() as Boolean {
 
 function fontLabel(font as Number) as String {
     var ids = [Rez.Strings.FontBionic, Rez.Strings.FontRoboto, Rez.Strings.FontKosugi,
-               Rez.Strings.FontNanum, Rez.Strings.FontNoto];
+               Rez.Strings.FontNanum, Rez.Strings.FontNoto, Rez.Strings.FontBionicHollow];
     return WatchUi.loadResource(ids[font]) as String;
 }
 

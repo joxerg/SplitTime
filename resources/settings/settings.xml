@@ -12,6 +12,7 @@
             <listEntry value="2">@Strings.FontKosugi</listEntry>
             <listEntry value="3">@Strings.FontNanum</listEntry>
             <listEntry value="4">@Strings.FontNoto</listEntry>
+            <listEntry value="5">@Strings.FontBionicHollow</listEntry>
         </settingConfig>
     </setting>
     <setting propertyKey="@Properties.Bold" title="@Strings.BoldTitle">

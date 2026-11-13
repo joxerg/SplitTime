@@ -12,14 +12,15 @@ Diseñada y probada para **tactix 8 Solar 51 mm** / **fēnix 8 Solar 51 mm** (ID
 ## Funciones
 
 - **Estilo A - Vertical**: horas arriba y minutos abajo, separados por una línea, con la fecha en el cuadrante derecho.
-- **Estilo B - Horizontal**: `9:05` en una línea, con la fecha debajo.
+- **Estilo B - Horizontal**: `09:05` en una línea, con la fecha debajo.
 - **Cinco fuentes sans serif** del sistema para la hora, con opción de negrita: Bionic, Roboto Condensed, Kosugi, Nanum Gothic y Noto Sans. Roboto Condensed tiene negrita propia; en las demás la esfera engorda el trazo.
+- **Bionic vacía**: Bionic dibujada solo con el contorno. Con negrita el contorno es más grueso.
 - **Cifras lo más grandes posible**: la esfera calcula el tamaño de cada fuente para que la hora más ancha quepa dejando unos 10 px hasta el borde circular. El tamaño no cambia con la hora.
 - **Fecha** en Roboto Condensed, la fuente del sistema: `MO 12`, `TU 3`, `WE`, `TH`, `FR`, `SA`, `SU`.
 - **Fondo negro o blanco**, con los colores invertidos.
 - **Calendario mensual**: mantén pulsada la pantalla para abrirlo. Con el calendario abierto, una pulsación larga a la izquierda muestra el mes anterior, a la derecha el siguiente y en el centro vuelve a la hora. El día actual aparece marcado en gris.
 
-- Respeta el formato de 12/24 h del reloj. En el estilo B la hora va siempre sin cero delante, como en la referencia.
+- Respeta el formato de 12/24 h del reloj. En 24 h la hora lleva siempre dos dígitos (`08:07`), así la hora ocupa siempre el mismo ancho y no se desplaza.
 - Bajo consumo: se refresca una vez por minuto y no usa imágenes.
 
 ### Fuentes
@@ -47,7 +48,7 @@ En el reloj: mantén pulsado **UP/MENU**, entra en **Esfera** y en **Personaliza
 | Ajuste | Opciones |
 |---|---|
 | Estilo | A - Vertical (por defecto) / B - Horizontal |
-| Fuente | Bionic (por defecto) / Roboto Condensed / Kosugi / Nanum Gothic / Noto Sans. Cada pulsación pasa a la siguiente. |
+| Fuente | Bionic (por defecto) / Roboto Condensed / Kosugi / Nanum Gothic / Noto Sans / Bionic vacía. Cada pulsación pasa a la siguiente. |
 | Negrita | Sí / No (por defecto) |
 | Fondo negro | Sí (por defecto) / No |
 
