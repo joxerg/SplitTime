@@ -3,6 +3,7 @@
         <settingConfig type="list">
             <listEntry value="0">@Strings.StyleVertical</listEntry>
             <listEntry value="1">@Strings.StyleHorizontal</listEntry>
+            <listEntry value="2">@Strings.StyleCompact</listEntry>
         </settingConfig>
     </setting>
     <setting propertyKey="@Properties.Font" title="@Strings.FontTitle">

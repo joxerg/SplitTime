@@ -5,6 +5,8 @@ import Toybox.WatchUi;
 
 const STYLE_VERTICAL = 0;
 const STYLE_HORIZONTAL = 1;
+const STYLE_COMPACT = 2;
+const STYLE_COUNT = 3;
 
 // Fuentes de la hora (indices de FONT_REGULAR en SplitTimeView.mc).
 const FONT_COUNT = 6;
@@ -47,17 +49,19 @@ function isDarkMode() as Boolean {
     }
 }
 
+// Estilo C - Compacto por defecto.
 function getStyle() as Number {
     try {
         var v = Application.Properties.getValue("Style");
-        return ((v instanceof Number) && (v as Number) == STYLE_HORIZONTAL) ? STYLE_HORIZONTAL : STYLE_VERTICAL;
+        return ((v instanceof Number) && (v as Number) >= 0 && (v as Number) < STYLE_COUNT) ? v as Number : STYLE_COMPACT;
     } catch (e) {
-        return STYLE_VERTICAL;
+        return STYLE_COMPACT;
     }
 }
 
 function styleLabel(style as Number) as String {
-    return WatchUi.loadResource(style == STYLE_HORIZONTAL ? Rez.Strings.StyleHorizontal : Rez.Strings.StyleVertical) as String;
+    var ids = [Rez.Strings.StyleVertical, Rez.Strings.StyleHorizontal, Rez.Strings.StyleCompact];
+    return WatchUi.loadResource(ids[style]) as String;
 }
 
 function getTimeFont() as Number {
@@ -128,7 +132,8 @@ class SplitTimeSettingsDelegate extends WatchUi.Menu2InputDelegate {
         if (id == :darkMode) {
             Application.Properties.setValue("DarkMode", (item as WatchUi.ToggleMenuItem).isEnabled());
         } else if (id == :style) {
-            var next = getStyle() == STYLE_HORIZONTAL ? STYLE_VERTICAL : STYLE_HORIZONTAL;
+            // Cada pulsacion pasa al estilo siguiente.
+            var next = (getStyle() + 1) % STYLE_COUNT;
             Application.Properties.setValue("Style", next);
             item.setSubLabel(styleLabel(next));
         } else if (id == :font) {

@@ -1,16 +1,18 @@
 # Split Time
 
-Esfera para relojes Garmin con pantalla MIP, con la hora en cifras grandes. Tiene dos estilos, vertical y horizontal, y todo va en blanco y negro. Basada en [Pixel Time](https://github.com/joxerg/PixelTime).
+Esfera para relojes Garmin con pantalla MIP, con la hora en cifras grandes. Tiene tres estilos, compacto, vertical y horizontal, y todo va en blanco y negro. Basada en [Pixel Time](https://github.com/joxerg/PixelTime).
 
 Diseñada y probada para **tactix 8 Solar 51 mm** / **fēnix 8 Solar 51 mm** (ID de Connect IQ: `fenix8solar51mm`).
 
 | | Fondo negro | Fondo blanco |
 |---|---|---|
+| **C - Compacto** | ![Estilo C, fondo negro](docs/estilo-c-oscuro.png) | ![Estilo C, fondo blanco](docs/estilo-c-claro.png) |
 | **A - Vertical** | ![Estilo A, fondo negro](docs/estilo-a-oscuro.png) | ![Estilo A, fondo blanco](docs/estilo-a-claro.png) |
 | **B - Horizontal** | ![Estilo B, fondo negro](docs/estilo-b-oscuro.png) | ![Estilo B, fondo blanco](docs/estilo-b-claro.png) |
 
 ## Funciones
 
+- **Estilo C - Compacto** (por defecto): `0905` en una línea, sin separador, con la fecha debajo, como la hora del modo Sueño de Garmin. La hora lleva siempre dos dígitos, también en 12 h.
 - **Estilo A - Vertical**: horas arriba y minutos abajo, separados por una línea, con la fecha en el cuadrante derecho.
 - **Estilo B - Horizontal**: `09:05` en una línea, con la fecha debajo.
 - **Cinco fuentes sans serif** del sistema para la hora, con opción de negrita: Bionic, Roboto Condensed, Kosugi, Nanum Gothic y Noto Sans. Roboto Condensed tiene negrita propia; en las demás la esfera engorda el trazo.
@@ -47,7 +49,7 @@ En el reloj: mantén pulsado **UP/MENU**, entra en **Esfera** y en **Personaliza
 
 | Ajuste | Opciones |
 |---|---|
-| Estilo | A - Vertical (por defecto) / B - Horizontal |
+| Estilo | C - Compacto (por defecto) / A - Vertical / B - Horizontal. Cada pulsación pasa al siguiente. |
 | Fuente | Bionic (por defecto) / Roboto Condensed / Kosugi / Nanum Gothic / Noto Sans / Bionic vacía. Cada pulsación pasa a la siguiente. |
 | Negrita | Sí / No (por defecto) |
 | Fondo negro | Sí (por defecto) / No |

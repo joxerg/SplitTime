@@ -4,6 +4,7 @@
     <string id="StyleTitle">Estilo</string>
     <string id="StyleVertical">A - Vertical</string>
     <string id="StyleHorizontal">B - Horizontal</string>
+    <string id="StyleCompact">C - Compacto</string>
     <string id="FontTitle">Fuente</string>
     <string id="FontBionic">Bionic</string>
     <string id="FontRoboto">Roboto Condensed</string>

@@ -6,7 +6,9 @@ import Toybox.Time;
 import Toybox.Time.Gregorian;
 import Toybox.WatchUi;
 
-// Esfera "Split Time" con dos estilos:
+// Esfera "Split Time" con tres estilos:
+//  C - Compacto (por defecto): "0905" en una linea, sin separador, con la
+//      fecha debajo.
 //  A - Vertical: horas arriba y minutos abajo, separados por una linea, con
 //      la fecha en el cuadrante derecho.
 //  B - Horizontal: "09:05" en una linea, con la fecha debajo.
@@ -89,6 +91,10 @@ class SplitTimeView extends WatchUi.WatchFace {
     private var _topB as Number = 0;
     private var _capB as Number = 0;
     private var _boldB as Number = 0;
+    private var _fontC as Graphics.FontType = Graphics.FONT_NUMBER_HOT;
+    private var _topC as Number = 0;
+    private var _capC as Number = 0;
+    private var _boldC as Number = 0;
     // Resultado de la ultima llamada a fitFont.
     private var _fitTop as Number = 0;
     private var _fitCap as Number = 0;
@@ -119,7 +125,7 @@ class SplitTimeView extends WatchUi.WatchFace {
 
     // Fuentes de la hora con el mayor tamano que deja EDGE_MARGIN pixeles
     // libres hasta el borde circular. Se calcula para el caso mas ancho
-    // ("88" / "88:88"), asi el tamano no cambia con la hora. Se repite cuando
+    // ("88" / "88:88" / "8888"), asi el tamano no cambia con la hora. Se repite cuando
     // cambian la fuente o la negrita en los ajustes.
     private function layoutTime(dc as Dc) as Void {
         var font = getTimeFont();
@@ -127,14 +133,18 @@ class SplitTimeView extends WatchUi.WatchFace {
         _fontKey = font * 2 + (bold ? 1 : 0);
         _hollow = font == FONT_HOLLOW;
         var r = (dc.getWidth() < dc.getHeight() ? dc.getWidth() : dc.getHeight()) / 2.0 - EDGE_MARGIN;
-        _fontA = fitFont(dc, r, font, bold, false);
+        _fontA = fitFont(dc, r, font, bold, "88");
         _topA = _fitTop;
         _capA = _fitCap;
         _boldA = _fitBold;
-        _fontB = fitFont(dc, r, font, bold, true);
+        _fontB = fitFont(dc, r, font, bold, "88:88");
         _topB = _fitTop;
         _capB = _fitCap;
         _boldB = _fitBold;
+        _fontC = fitFont(dc, r, font, bold, "8888");
+        _topC = _fitTop;
+        _capC = _fitCap;
+        _boldC = _fitBold;
     }
 
     // Roboto Condensed vectorial al tamano pedido, o la fuente del sistema
@@ -151,8 +161,11 @@ class SplitTimeView extends WatchUi.WatchFace {
 
     // Busqueda binaria del mayor tamano que cabe en el circulo de radio r.
     // Sin fuentes vectoriales se usa la fuente numerica mayor del sistema.
+    // "sample" es la hora mas ancha del estilo: "88" (A, vertical), "88:88"
+    // (B) o "8888" (C). B y C van en una linea centrada.
     private function fitFont(dc as Dc, r as Float, font as Number, bold as Boolean,
-                             horizontal as Boolean) as Graphics.FontType {
+                             sample as String) as Graphics.FontType {
+        var horizontal = sample.length() > 2;
         var face = FONT_REGULAR[font];
         var hollow = font == FONT_HOLLOW;
         // fake: trazo engordado (negrita simulada o contorno de la vacia).
@@ -179,9 +192,9 @@ class SplitTimeView extends WatchUi.WatchFace {
                 // La vacia crece el grosor del contorno por cada lado.
                 var k = fake ? boldPx(size, ratio) * (hollow ? 2 : 1) : 0;
                 var cap = (size * FONT_CAP[font]).toNumber() + k;
-                var tw = timeWidth(dc, horizontal ? "88:88" : "88", f, k).toFloat();
+                var tw = timeWidth(dc, sample, f, k).toFloat();
                 var hx = tw / 2.0;
-                // B: bloque centrado. A: esquina exterior de horas o minutos.
+                // B y C: bloque centrado. A: esquina exterior de horas o minutos.
                 var hy = horizontal ? cap / 2.0 : (gapA(cap) + cap).toFloat();
                 if (hx * hx + hy * hy <= r * r) {
                     best = f;
@@ -357,8 +370,13 @@ class SplitTimeView extends WatchUi.WatchFace {
         // En 24 h la hora lleva siempre dos digitos ("08"), asi el ancho no
         // cambia a lo largo del dia y los dos puntos no se desplazan.
         var hText = settings.is24Hour ? hour.format("%02d") : hour.toString();
-        if (getStyle() == STYLE_HORIZONTAL) {
-            drawHorizontal(dc, w, h, hText + ":" + mText, date);
+        var style = getStyle();
+        if (style == STYLE_COMPACT) {
+            // Sin separador la hora lleva siempre dos digitos, tambien en
+            // 12 h: "0658" se lee bien, "658" no.
+            drawHorizontal(dc, w, h, hour.format("%02d") + mText, date, _fontC, _topC, _capC, _boldC);
+        } else if (style == STYLE_HORIZONTAL) {
+            drawHorizontal(dc, w, h, hText + ":" + mText, date, _fontB, _topB, _capB, _boldB);
         } else {
             drawVertical(dc, w, h, hText, mText, date);
         }
@@ -392,16 +410,18 @@ class SplitTimeView extends WatchUi.WatchFace {
                     Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    // Estilo B: "9:05" en una linea, con la fecha debajo.
+    // Estilos B ("09:05") y C ("0905"): la hora en una linea, con la fecha
+    // debajo.
     private function drawHorizontal(dc as Dc, w as Number, h as Number, time as String,
-                                    date as String) as Void {
+                                    date as String, font as Graphics.FontType, top as Number,
+                                    cap as Number, bold as Number) as Void {
         var cx = w / 2;
         var cy = h / 2;
         // Cifras centradas verticalmente en la pantalla.
-        drawTime(dc, cx, cy - _capB / 2, _fontB, _topB, _boldB, time);
+        drawTime(dc, cx, cy - cap / 2, font, top, bold, time);
 
         // Fecha debajo: la parte alta de las mayusculas a DATE_GAP_B de la hora.
-        var dy = cy + _capB / 2 + (_capB * DATE_GAP_B).toNumber();
+        var dy = cy + cap / 2 + (cap * DATE_GAP_B).toNumber();
         dc.drawText(cx, dy - capOffset(_dateB, DATE_SIZE_B), _dateB, date, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
