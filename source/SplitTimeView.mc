@@ -34,6 +34,11 @@ class SplitTimeView extends WatchUi.WatchFace {
     // Negrita simulada (fuentes sin version negrita): grosor extra del trazo
     // respecto al tamano de la fuente.
     const BOLD_RATIO = 0.035;
+    // Estilo C con Bionic sin negrita: trazo engordado para igualar el grosor
+    // de la hora del modo Sueno de Garmin (trazo = 20 % de la altura de la
+    // cifra; Bionic SemiBold tal cual queda en 16 %). Con negrita se usa
+    // BOLD_RATIO.
+    const COMPACT_BIONIC_RATIO = 0.024;
     // Bionic vacia: grosor del contorno respecto al tamano de la fuente. El
     // contorno queda por fuera de la silueta de la cifra. Con negrita se usa
     // el segundo.
@@ -133,15 +138,15 @@ class SplitTimeView extends WatchUi.WatchFace {
         _fontKey = font * 2 + (bold ? 1 : 0);
         _hollow = font == FONT_HOLLOW;
         var r = (dc.getWidth() < dc.getHeight() ? dc.getWidth() : dc.getHeight()) / 2.0 - EDGE_MARGIN;
-        _fontA = fitFont(dc, r, font, bold, "88");
+        _fontA = fitFont(dc, r, font, bold, "88", 0.0);
         _topA = _fitTop;
         _capA = _fitCap;
         _boldA = _fitBold;
-        _fontB = fitFont(dc, r, font, bold, "88:88");
+        _fontB = fitFont(dc, r, font, bold, "88:88", 0.0);
         _topB = _fitTop;
         _capB = _fitCap;
         _boldB = _fitBold;
-        _fontC = fitFont(dc, r, font, bold, "8888");
+        _fontC = fitFont(dc, r, font, bold, "8888", font == 0 ? COMPACT_BIONIC_RATIO : 0.0);
         _topC = _fitTop;
         _capC = _fitCap;
         _boldC = _fitBold;
@@ -162,9 +167,10 @@ class SplitTimeView extends WatchUi.WatchFace {
     // Busqueda binaria del mayor tamano que cabe en el circulo de radio r.
     // Sin fuentes vectoriales se usa la fuente numerica mayor del sistema.
     // "sample" es la hora mas ancha del estilo: "88" (A, vertical), "88:88"
-    // (B) o "8888" (C). B y C van en una linea centrada.
+    // (B) o "8888" (C). B y C van en una linea centrada. "base" (> 0) engorda
+    // el trazo aunque la negrita este apagada.
     private function fitFont(dc as Dc, r as Float, font as Number, bold as Boolean,
-                             sample as String) as Graphics.FontType {
+                             sample as String, base as Float) as Graphics.FontType {
         var horizontal = sample.length() > 2;
         var face = FONT_REGULAR[font];
         var hollow = font == FONT_HOLLOW;
@@ -178,6 +184,10 @@ class SplitTimeView extends WatchUi.WatchFace {
             }
         }
         var ratio = hollow ? (bold ? HOLLOW_BOLD_RATIO : HOLLOW_RATIO) : BOLD_RATIO;
+        if (!fake && !bold && base > 0) {
+            fake = true;
+            ratio = base;
+        }
         var best = null;
         var bestSize = 0;
         if (Graphics has :getVectorFont) {
